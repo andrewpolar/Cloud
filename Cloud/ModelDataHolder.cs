@@ -180,6 +180,11 @@ namespace Cloud
                 // Alternate component after the whole generation.
                 component = 1 - component;
             }
+
+            for (int i = 0; i < leaves.Count; ++i)
+            {
+                leaves[i].Train();
+            }
         }
 
         public double[][] GetPredictedSamples(double[] features)
