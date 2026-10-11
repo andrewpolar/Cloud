@@ -189,6 +189,7 @@ namespace Cloud
             Console.WriteLine("Goodness of fit test by 2D median tree, sample size {0}, min in buckets {1}, {2} buckets",
                 sampleSize, minMedianBlock, b);
             int passedTests = 0;
+            double meanED = 0.0;
             for (int record = 0; record < nCalibrationRecords; ++record)
             {
                 double[][] montecarlo = new double[monteCarloSize][];
@@ -216,10 +217,14 @@ namespace Cloud
                     knn[i] = (double[])targets[knn_records[i]].Clone();
                 }
                 double kNNGoodness = MDistance2D.MedianTreeDistance(knn, montecarlo, minMedianBlock, false);
+                double edGoodness = Helper.EnergyDistance(montecarlo, knn);
+                meanED += edGoodness;
                 if (MCgoodness[MCgoodness.Count - 1] > kNNGoodness) ++passedTests;
-                Console.WriteLine("test = {0} of {1}, MC goodness = {2:0.0000}, knn goodness {3:0.0000}, passed = {4}",
-                    record + 1, nCalibrationRecords, MCgoodness[MCgoodness.Count - 1], kNNGoodness, passedTests);
+                Console.WriteLine("test = {0} of {1}, MC goodness = {2:0.0000}, knn goodness {3:0.0000}, passed = {4}, energy = {5:0.0000}",
+                    record + 1, nCalibrationRecords, MCgoodness[MCgoodness.Count - 1], kNNGoodness, passedTests, edGoodness);
             }
+            meanED /= nCalibrationRecords;
+            Console.WriteLine("Mean energy distance for kNN = {0:0.0000}", meanED);
         }
 
         static void DDRGoognessOfFitTest(double[][] features, double[][] features_calibration, double[][] targets,
@@ -250,6 +255,7 @@ namespace Cloud
             Console.WriteLine($"Time for building ensemble: {sw.Elapsed.TotalMilliseconds:F3} ms\n");
 
             int passedTests = 0;
+            double meanED = 0.0;
             for (int record = 0; record < nCalibrationRecords; ++record)
             {
                 double[][] montecarlo = new double[monteCarloSize][];
@@ -272,17 +278,21 @@ namespace Cloud
 
                 double[][] sample = holder.GetPredictedSamples(features_calibration[record]);
                 double DDRGoodness = MDistance2D.MedianTreeDistance(sample, montecarlo, minMedianBlock, false);
+                double edGoodness = Helper.EnergyDistance(montecarlo, sample);
+                meanED += edGoodness;
 
                 if (MCgoodness[MCgoodness.Count - 1] > DDRGoodness) ++passedTests;
-                Console.WriteLine("test = {0} of {1}, MC goodness = {2:0.0000}, DDR goodness {3:0.0000}, passed = {4}",
-                    record + 1, nCalibrationRecords, MCgoodness[MCgoodness.Count - 1], DDRGoodness, passedTests);
+                Console.WriteLine("test = {0} of {1}, MC goodness = {2:0.0000}, DDR goodness {3:0.0000}, passed = {4}, energy = {5:0.0000}",
+                record + 1, nCalibrationRecords, MCgoodness[MCgoodness.Count - 1], DDRGoodness, passedTests, edGoodness);
             }
+            meanED /= nCalibrationRecords;
+            Console.WriteLine("Mean energy distance for DDR = {0:0.0000}", meanED);
         }
 
         static void Main(string[] args)
         {
             //parameters for datasets
-            const int nTrainingRecords = 10000;
+            const int nTrainingRecords = 20000;
             const int nCalibrationRecords = 100;
             const int nNumbers = 2;
             const int nFeatures = nNumbers * 2;
@@ -327,6 +337,15 @@ namespace Cloud
 
             (double targetMin, double targetMax) = FindMatrixMinMax(targets);
 
+            double[][] montecarlo = new double[monteCarloSize][];
+            for (int i = 0; i < monteCarloSize; ++i)
+            {
+                montecarlo[i] = (double[])Helper.ComputeComplexTargets(features_calibration[0], uncertainty, rng).Clone();
+            }
+
+            //int[,] histo = Helper.Make2DHistogram(montecarlo, 10, 10);
+            //Helper.ShowMatrix(histo);
+
             DeterministicModel(nFeatures, nHidden, nTargets, nDisjoints, featureMin, featureMax,
                 targetMin, targetMax, alpha, rng, nLoops, nDisjointSize, nTrainingRecords,
                 features, targets, features_calibration, targets_calibration, threshold);
@@ -334,9 +353,8 @@ namespace Cloud
             kNNGoodnessOfFitTest(features, features_calibration, targets, uncertainty, rng, sampleSize, minMedianBlock,
                 nCalibrationRecords, monteCarloSize, monteCarloSamples);
 
-            DDRGoognessOfFitTest(features, features_calibration, targets, nHidden,uncertainty, sampleSize, minMedianBlock, nCalibrationRecords,
+            DDRGoognessOfFitTest(features, features_calibration, targets, nHidden, uncertainty, sampleSize, minMedianBlock, nCalibrationRecords,
                 monteCarloSize, monteCarloSamples, featureMin, featureMax, targetMin, targetMax, alpha, rng);
         }
     }
 }
-
