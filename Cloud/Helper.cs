@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 
 namespace Cloud
 {
@@ -238,6 +238,114 @@ namespace Cloud
                 .Take(n)
                 .Select(x => x.Index)
                 .ToArray();
+        }
+
+        public static double EnergyDistance(double[][] montecarlo, double[][] sample)
+        {
+            ValidateMatrix(montecarlo, nameof(montecarlo));
+            ValidateMatrix(sample, nameof(sample));
+
+            if (montecarlo[0].Length != sample[0].Length)
+            {
+                throw new ArgumentException(
+                    "Both matrices must have the same number of columns.");
+            }
+
+            double cross = AveragePairwiseDistance(
+                montecarlo, sample);
+
+            double withinPopulation = AveragePairwiseDistance(
+                montecarlo, montecarlo);
+
+            double withinSample = AveragePairwiseDistance(
+                sample, sample);
+
+            double result =
+                2.0 * cross
+                - withinPopulation
+                - withinSample;
+
+            // Remove tiny negative values caused by floating-point error.
+            if (result < 0.0 && result > -1e-12)
+                result = 0.0;
+
+            return result;
+        }
+
+        private static double AveragePairwiseDistance(
+            double[][] A,
+            double[][] B)
+        {
+            double sum = 0.0;
+            long count = (long)A.Length * B.Length;
+
+            for (int i = 0; i < A.Length; i++)
+            {
+                for (int j = 0; j < B.Length; j++)
+                {
+                    sum += EuclideanDistance(A[i], B[j]);
+                }
+            }
+
+            return sum / count;
+        }
+
+        private static double EuclideanDistance(
+            double[] a,
+            double[] b)
+        {
+            double sumSquares = 0.0;
+
+            for (int k = 0; k < a.Length; k++)
+            {
+                double diff = a[k] - b[k];
+                sumSquares += diff * diff;
+            }
+
+            return Math.Sqrt(sumSquares);
+        }
+
+        private static void ValidateMatrix(
+            double[][] matrix,
+            string parameterName)
+        {
+            if (matrix == null || matrix.Length == 0)
+            {
+                throw new ArgumentException(
+                    "Matrix must not be null or empty.",
+                    parameterName);
+            }
+
+            if (matrix[0] == null || matrix[0].Length == 0)
+            {
+                throw new ArgumentException(
+                    "Matrix rows must not be empty.",
+                    parameterName);
+            }
+
+            int columns = matrix[0].Length;
+
+            for (int i = 0; i < matrix.Length; i++)
+            {
+                if (matrix[i] == null ||
+                    matrix[i].Length != columns)
+                {
+                    throw new ArgumentException(
+                        "Matrix must be rectangular.",
+                        parameterName);
+                }
+
+                for (int j = 0; j < columns; j++)
+                {
+                    if (double.IsNaN(matrix[i][j]) ||
+                        double.IsInfinity(matrix[i][j]))
+                    {
+                        throw new ArgumentException(
+                            "Matrix values must be finite.",
+                            parameterName);
+                    }
+                }
+            }
         }
     }
 }
